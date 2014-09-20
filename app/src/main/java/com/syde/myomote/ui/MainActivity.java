@@ -240,6 +240,9 @@ public class MainActivity extends BootstrapFragmentActivity {
                             break;
                     }
 
+                    //Let the user know they are done the current pose
+                    //and in the rest state
+                    myo.vibrate(Myo.VibrationType.SHORT);
                     hasUserMadePose = false;
                     break;
 
