@@ -22,6 +22,7 @@ import com.syde.myomote.events.NavItemSelectedEvent;
 import com.syde.myomote.util.Ln;
 import com.syde.myomote.util.SafeAsyncTask;
 import com.syde.myomote.util.UIUtils;
+
 import com.thalmic.myo.AbstractDeviceListener;
 import com.thalmic.myo.Arm;
 import com.thalmic.myo.DeviceListener;
@@ -30,6 +31,10 @@ import com.thalmic.myo.Myo;
 import com.thalmic.myo.Pose;
 import com.thalmic.myo.Quaternion;
 import com.thalmic.myo.XDirection;
+
+
+
+
 
 import javax.inject.Inject;
 
@@ -45,8 +50,13 @@ import butterknife.Views;
 public class MainActivity extends BootstrapFragmentActivity {
 
     private static final String TAG = "Myo";
+
     @Inject
     protected BootstrapServiceProvider serviceProvider;
+
+
+
+
 
     private boolean userHasAuthenticated = false;
 
@@ -249,6 +259,17 @@ public class MainActivity extends BootstrapFragmentActivity {
             fragmentManager.beginTransaction()
                     .replace(R.id.container, new CarouselFragment())
                     .commit();
+
+            Hub hub = Hub.getInstance();
+            if (!hub.init(this)) {
+                Log.e(TAG, "Could not initialize the Hub.");
+                finish();
+                return;
+            }
+
+            /* Pair with the closest myo to the device for now...*/
+            hub.getInstance().pairWithAdjacentMyo();
+
         }
     }
 
