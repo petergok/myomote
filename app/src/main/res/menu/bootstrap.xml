@@ -24,5 +24,9 @@
         android:title="@string/logout_action" >
     </item>
 
-
+    <item
+        android:id="@+id/send"
+        bootstrap:showAsAction="never"
+        android:title="send" >
+    </item>
 </menu>

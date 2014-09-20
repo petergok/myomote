@@ -34,8 +34,7 @@ dependencies {
     /* Dependencies for the Myo */
     repositories {
         maven {
-            url '/Users/pgokhshteyn/develop/android-bootstrap/myo-android-sdk-0.6.0/myorepository'
-            //url 'C:\\Users\\Brady\\Documents\\htn\\myomote\\myo-android-sdk-0.6.0\\myorepository'
+            url 'C:\\Users\\Brady\\Documents\\htn\\myomote\\myo-android-sdk-0.6.0\\myorepository'
         }
     }
 
@@ -52,7 +51,11 @@ android {
     buildToolsVersion '19.1.0'
 
     defaultConfig {
+<<<<<<< HEAD
+        minSdkVersion 16
+=======
         minSdkVersion 18
+>>>>>>> Added bluetooth LE capabilities, currently displays toast of result
         targetSdkVersion 19
         versionCode 102
         versionName '1.0'

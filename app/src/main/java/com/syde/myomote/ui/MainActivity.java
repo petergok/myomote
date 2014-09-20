@@ -3,9 +3,18 @@
 package com.syde.myomote.ui;
 
 import android.accounts.OperationCanceledException;
+import android.bluetooth.BluetoothAdapter;
+import android.bluetooth.BluetoothDevice;
+import android.bluetooth.BluetoothGatt;
+import android.bluetooth.BluetoothGattCallback;
+import android.bluetooth.BluetoothGattCharacteristic;
+import android.bluetooth.BluetoothGattDescriptor;
+import android.bluetooth.BluetoothManager;
+import android.content.Context;
 import android.content.Intent;
 import android.content.res.Configuration;
 import android.os.Bundle;
+import android.os.Handler;
 import android.support.v4.app.ActionBarDrawerToggle;
 import android.support.v4.app.FragmentManager;
 import android.support.v4.widget.DrawerLayout;
@@ -13,6 +22,7 @@ import android.util.Log;
 import android.view.MenuItem;
 import android.view.View;
 import android.view.Window;
+import android.widget.Toast;
 
 import com.squareup.otto.Subscribe;
 import com.syde.myomote.BootstrapServiceProvider;
@@ -31,6 +41,13 @@ import com.thalmic.myo.Pose;
 import com.thalmic.myo.Quaternion;
 import com.thalmic.myo.Vector3;
 import com.thalmic.myo.XDirection;
+
+import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
+import java.nio.charset.Charset;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.UUID;
 
 import javax.inject.Inject;
 
@@ -111,10 +128,11 @@ public class MainActivity extends BootstrapFragmentActivity {
                     (DrawerLayout) findViewById(R.id.drawer_layout));
         }
 
-
         getSupportActionBar().setDisplayHomeAsUpEnabled(true);
         getSupportActionBar().setHomeButtonEnabled(true);
 
+        userHasAuthenticated = true;
+        initScreen();
 
         // Init the Myo hub (or atleast try to)
         Log.e(TAG, "About to init Hub.");
@@ -133,8 +151,6 @@ public class MainActivity extends BootstrapFragmentActivity {
         // Next, register for DeviceListener callbacks.
         hub.addListener(mListener);
 
-        checkAuth();
-
     }
 
     private boolean isTablet() {
@@ -150,7 +166,6 @@ public class MainActivity extends BootstrapFragmentActivity {
             drawerToggle.syncState();
         }
     }
-
 
     @Override
     public void onConfigurationChanged(final Configuration newConfig) {
@@ -278,34 +293,6 @@ public class MainActivity extends BootstrapFragmentActivity {
         }
     }
 
-    private void checkAuth() {
-        new SafeAsyncTask<Boolean>() {
-
-            @Override
-            public Boolean call() throws Exception {
-                final BootstrapService svc = serviceProvider.getService(MainActivity.this);
-                return svc != null;
-            }
-
-            @Override
-            protected void onException(final Exception e) throws RuntimeException {
-                super.onException(e);
-                if (e instanceof OperationCanceledException) {
-                    // User cancelled the authentication process (back button, etc).
-                    // Since auth could not take place, lets finish this activity.
-                    finish();
-                }
-            }
-
-            @Override
-            protected void onSuccess(final Boolean hasAuthenticated) throws Exception {
-                super.onSuccess(hasAuthenticated);
-                userHasAuthenticated = true;
-                initScreen();
-            }
-        }.execute();
-    }
-
     @Override
     public boolean onOptionsItemSelected(final MenuItem item) {
 
@@ -346,4 +333,6 @@ public class MainActivity extends BootstrapFragmentActivity {
                 break;
         }
     }
+
+
 }
