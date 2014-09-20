@@ -15,9 +15,12 @@ import com.syde.myomote.core.TimerService;
 import com.syde.myomote.core.UserAgentProvider;
 import com.syde.myomote.ui.BootstrapTimerActivity;
 import com.syde.myomote.ui.CheckInsListFragment;
+import com.syde.myomote.ui.CreateControlActivity;
+import com.syde.myomote.ui.DeviceListFragment;
 import com.syde.myomote.ui.MainActivity;
 import com.syde.myomote.ui.NavigationDrawerFragment;
 import com.syde.myomote.ui.NewsActivity;
+import com.syde.myomote.ui.NewsListAdapter;
 import com.syde.myomote.ui.NewsListFragment;
 import com.syde.myomote.ui.UserActivity;
 import com.syde.myomote.ui.UserListFragment;
@@ -46,8 +49,11 @@ import retrofit.converter.GsonConverter;
                 BootstrapTimerActivity.class,
                 CheckInsListFragment.class,
                 NavigationDrawerFragment.class,
-                NewsActivity.class,
+                NewsListAdapter.class,
                 NewsListFragment.class,
+                CreateControlActivity.class,
+                NewsActivity.class,
+                DeviceListFragment.class,
                 UserActivity.class,
                 UserListFragment.class,
                 TimerService.class

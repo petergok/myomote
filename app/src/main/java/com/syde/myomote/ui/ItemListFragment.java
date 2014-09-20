@@ -40,6 +40,7 @@ import com.syde.myomote.authenticator.LogoutService;
 import com.github.kevinsawicki.wishlist.SingleTypeAdapter;
 import com.github.kevinsawicki.wishlist.Toaster;
 import com.github.kevinsawicki.wishlist.ViewUtils;
+import com.syde.myomote.core.Global;
 
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
@@ -60,30 +61,6 @@ public abstract class ItemListFragment<E> extends Fragment
         implements LoaderCallbacks<List<E>> {
 
     private static final String FORCE_REFRESH = "forceRefresh";
-
-    private static int REQUEST_ENABLE_BT = 1;
-
-    // UUIDs for UAT service and associated characteristics.
-    public static UUID UART_UUID = UUID.fromString("6E400001-B5A3-F393-E0A9-E50E24DCCA9E");
-    public static UUID TX_UUID = UUID.fromString("6E400002-B5A3-F393-E0A9-E50E24DCCA9E");
-    public static UUID RX_UUID = UUID.fromString("6E400003-B5A3-F393-E0A9-E50E24DCCA9E");
-    // UUID for the BTLE client characteristic which is necessary for notifications.
-    public static UUID CLIENT_UUID = UUID.fromString("00002902-0000-1000-8000-00805f9b34fb");
-
-    // BTLE state
-    private BluetoothAdapter adapter;
-    private BluetoothGatt gatt;
-    private BluetoothGattCharacteristic tx;
-    private BluetoothGattCharacteristic rx;
-
-    private Handler mHandler;
-
-    // Stops scanning after 10 seconds.
-    private static final long SCAN_PERIOD = 100000;
-
-    private BluetoothAdapter mBluetoothAdapter;
-
-    private volatile boolean ismScanning;
 
     /**
      * @param args bundle passed to the loader by the LoaderManager
@@ -179,136 +156,9 @@ public abstract class ItemListFragment<E> extends Fragment
         listView.setAdapter(createAdapter());
     }
 
-    private BluetoothGattCallback callback = new BluetoothGattCallback() {
-        // Called whenever the device connection state changes, i.e. from disconnected to connected.
-        @Override
-        public void onConnectionStateChange(BluetoothGatt gatt, int status, int newState) {
-            super.onConnectionStateChange(gatt, status, newState);
-            if (newState == BluetoothGatt.STATE_CONNECTED) {
-                writeLine("connected");
-                // Discover services.
-                if (!gatt.discoverServices()) {
-                    writeLine("failed to start discovering services!");
-                }
-            }
-            else if (newState == BluetoothGatt.STATE_DISCONNECTED) {
-                writeLine("disconnected!");
-            }
-            else {
-                writeLine("connection state changed, new state: " + newState);
-            }
-        }
-
-        // Called when services have been discovered on the remote device.
-        // It seems to be necessary to wait for this discovery to occur before
-        // manipulating any services or characteristics.
-        @Override
-        public void onServicesDiscovered(BluetoothGatt gatt, int status) {
-            super.onServicesDiscovered(gatt, status);
-            if (status == BluetoothGatt.GATT_SUCCESS) {
-                writeLine("service discovery completed!");
-            }
-            else {
-                writeLine("service discovery failed with status: " + status);
-            }
-            // Save reference to each characteristic.
-            tx = gatt.getService(UART_UUID).getCharacteristic(TX_UUID);
-            rx = gatt.getService(UART_UUID).getCharacteristic(RX_UUID);
-            // Setup notifications on RX characteristic changes (i.e. data received).
-            // First call setCharacteristicNotification to enable notification.
-            if (!gatt.setCharacteristicNotification(rx, true)) {
-                writeLine("Couldn't set notifications for RX characteristic!");
-            }
-            // Next update the RX characteristic's client descriptor to enable notifications.
-            if (rx.getDescriptor(CLIENT_UUID) != null) {
-                BluetoothGattDescriptor desc = rx.getDescriptor(CLIENT_UUID);
-                desc.setValue(BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE);
-                if (!gatt.writeDescriptor(desc)) {
-                    writeLine("Couldn't write RX client descriptor value!");
-                }
-            }
-            else {
-                writeLine("Couldn't get RX client descriptor!");
-            }
-        }
-
-        // Called when a remote characteristic changes (like the RX characteristic).
-        @Override
-        public void onCharacteristicChanged(BluetoothGatt gatt, BluetoothGattCharacteristic characteristic) {
-            super.onCharacteristicChanged(gatt, characteristic);
-            writeLine("Received: " + characteristic.getStringValue(0));
-        }
-    };
-
-    public void sendMessage(String message) {
-        if (tx == null || message == null || message.isEmpty()) {
-            // Do nothing if there is no device or message to send.
-            return;
-        }
-        // Update TX characteristic value.  Note the setValue overload that takes a byte array must be used.
-        tx.setValue(message.getBytes(Charset.forName("UTF-8")));
-        if (gatt.writeCharacteristic(tx)) {
-            writeLine("Sent: " + message);
-        }
-        else {
-            writeLine("Couldn't write TX characteristic!");
-        }
-    }
-
-    // BTLE device scanning callback.
-    private BluetoothAdapter.LeScanCallback scanCallback = new BluetoothAdapter.LeScanCallback() {
-        // Called when a device is found.
-        @Override
-        public void onLeScan(BluetoothDevice bluetoothDevice, int i, byte[] bytes) {
-            if (!ismScanning) {
-                return;
-            }
-            String address = bluetoothDevice.getAddress();
-            // Check if the device has the UART service.
-            if (bluetoothDevice.getAddress().startsWith("D7:83:D7:1D:A1:D9")) {
-                // Found a device, stop the scan.
-                ismScanning = false;
-                writeLine("Found UART service!");
-                // Connect to the device.
-                // Control flow will now go to the callback functions when BTLE events occur.
-                gatt = bluetoothDevice.connectGatt(getActivity().getApplicationContext(), false, callback);
-                adapter.stopLeScan(scanCallback);
-            }
-        }
-    };
-
-    @Override
-    public void onStop() {
-        super.onStop();
-        if (gatt != null) {
-            // For better reliability be careful to disconnect and close the connection.
-            gatt.disconnect();
-            gatt.close();
-            gatt = null;
-            tx = null;
-            rx = null;
-        }
-    }
-
     @Override
     public void onCreate(final Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-
-        final BluetoothManager bluetoothManager =
-                (BluetoothManager) getActivity().getSystemService(Context.BLUETOOTH_SERVICE);
-        mBluetoothAdapter = bluetoothManager.getAdapter();
-
-        mHandler = new Handler();
-
-        // Ensures Bluetooth is available on the device and it is enabled. If not,
-        // displays a dialog requesting user permission to enable Bluetooth.
-        if (mBluetoothAdapter == null || !mBluetoothAdapter.isEnabled()) {
-            Intent enableBtIntent = new Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE);
-            startActivityForResult(enableBtIntent, REQUEST_ENABLE_BT);
-        }
-
-        ismScanning = true;
-        mBluetoothAdapter.startLeScan(scanCallback);
 
         setHasOptionsMenu(true);
     }
@@ -324,14 +174,8 @@ public abstract class ItemListFragment<E> extends Fragment
             return false;
         }
         switch (item.getItemId()) {
-            case id.refresh:
-                forceRefresh();
-                return true;
-            case R.id.logout:
-                logout();
-                return true;
-            case R.id.send:
-                sendMessage("HALLO");
+            case id.create:
+                createControl();
                 return true;
             default:
                 return super.onOptionsItemSelected(item);
@@ -340,24 +184,12 @@ public abstract class ItemListFragment<E> extends Fragment
 
     protected abstract LogoutService getLogoutService();
 
-    private void logout() {
-        getLogoutService().logout(new Runnable() {
-            @Override
-            public void run() {
-                // Calling a refresh will force the service to look for a logged in user
-                // and when it finds none the user will be requested to log in again.
-                forceRefresh();
-            }
-        });
-    }
-
     /**
      * Force a refresh of the items displayed ignoring any cached items
      */
-    protected void forceRefresh() {
-        final Bundle bundle = new Bundle();
-        bundle.putBoolean(FORCE_REFRESH, true);
-        refresh(bundle);
+    protected void createControl() {
+        Intent i = new Intent(getActivity(), CreateControlActivity.class);
+        startActivityForResult(i, 1234);
     }
 
     /**
@@ -624,72 +456,5 @@ public abstract class ItemListFragment<E> extends Fragment
      */
     protected boolean isUsable() {
         return getActivity() != null;
-    }
-
-
-    public void writeLine(final String message) {
-        final Context context = getActivity();
-        getActivity().runOnUiThread(new Runnable() {
-            @Override
-            public void run() {
-                Toast.makeText(context, message, Toast.LENGTH_SHORT).show();
-            }
-        });
-
-        Log.d("UART", message);
-    }
-
-
-    // Filtering by custom UUID is broken in Android 4.3 and 4.4, see:
-    //   http://stackoverflow.com/questions/18019161/startlescan-with-128-bit-uuids-doesnt-work-on-native-android-ble-implementation?noredirect=1#comment27879874_18019161
-    // This is a workaround function from the SO thread to manually parse advertisement data.
-    private List<UUID> parseUUIDs(final byte[] advertisedData) {
-        List<UUID> uuids = new ArrayList<UUID>();
-
-        int offset = 0;
-        while (offset < (advertisedData.length - 2)) {
-            int len = advertisedData[offset++];
-            if (len == 0)
-                break;
-
-            int type = advertisedData[offset++];
-            switch (type) {
-                case 0x02: // Partial list of 16-bit UUIDs
-                case 0x03: // Complete list of 16-bit UUIDs
-                    while (len > 1) {
-                        int uuid16 = advertisedData[offset++];
-                        uuid16 += (advertisedData[offset++] << 8);
-                        len -= 2;
-                        uuids.add(UUID.fromString(String.format("%08x-0000-1000-8000-00805f9b34fb", uuid16)));
-                    }
-                    break;
-                case 0x06:// Partial list of 128-bit UUIDs
-                case 0x07:// Complete list of 128-bit UUIDs
-                    // Loop through the advertised 128-bit UUID's.
-                    while (len >= 16) {
-                        try {
-                            // Wrap the advertised bits and order them.
-                            ByteBuffer buffer = ByteBuffer.wrap(advertisedData, offset++, 16).order(ByteOrder.LITTLE_ENDIAN);
-                            long mostSignificantBit = buffer.getLong();
-                            long leastSignificantBit = buffer.getLong();
-                            uuids.add(new UUID(leastSignificantBit,
-                                    mostSignificantBit));
-                        } catch (IndexOutOfBoundsException e) {
-                            // Defensive programming.
-                            //Log.e(LOG_TAG, e.toString());
-                            continue;
-                        } finally {
-                            // Move the offset to read the next uuid.
-                            offset += 15;
-                            len -= 16;
-                        }
-                    }
-                    break;
-                default:
-                    offset += (len - 1);
-                    break;
-            }
-        }
-        return uuids;
     }
 }

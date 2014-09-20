@@ -12,7 +12,9 @@ import android.bluetooth.BluetoothGattDescriptor;
 import android.bluetooth.BluetoothManager;
 import android.content.Context;
 import android.content.Intent;
+import android.content.SharedPreferences;
 import android.content.res.Configuration;
+import android.gesture.Gesture;
 import android.os.Bundle;
 import android.os.Handler;
 import android.support.v4.app.ActionBarDrawerToggle;
@@ -28,6 +30,9 @@ import com.squareup.otto.Subscribe;
 import com.syde.myomote.BootstrapServiceProvider;
 import com.syde.myomote.R;
 import com.syde.myomote.core.BootstrapService;
+import com.syde.myomote.core.Control;
+import com.syde.myomote.core.Device;
+import com.syde.myomote.core.Global;
 import com.syde.myomote.events.NavItemSelectedEvent;
 import com.syde.myomote.util.Ln;
 import com.syde.myomote.util.SafeAsyncTask;
@@ -64,6 +69,31 @@ public class MainActivity extends BootstrapFragmentActivity {
 
     private static final String TAG = "Myo";
 
+    private static int REQUEST_ENABLE_BT = 1;
+
+    public static ArrayList<Device> currentDevices;
+
+    // UUIDs for UAT service and associated characteristics.
+    public static UUID UART_UUID = UUID.fromString("6E400001-B5A3-F393-E0A9-E50E24DCCA9E");
+    public static UUID TX_UUID = UUID.fromString("6E400002-B5A3-F393-E0A9-E50E24DCCA9E");
+    public static UUID RX_UUID = UUID.fromString("6E400003-B5A3-F393-E0A9-E50E24DCCA9E");
+    // UUID for the BTLE client characteristic which is necessary for notifications.
+    public static UUID CLIENT_UUID = UUID.fromString("00002902-0000-1000-8000-00805f9b34fb");
+
+    // BTLE state
+    private BluetoothGatt gatt;
+    private BluetoothGattCharacteristic tx;
+    private BluetoothGattCharacteristic rx;
+
+    private Handler mHandler;
+
+    // Stops scanning after 10 seconds.
+    private static final long SCAN_PERIOD = 100000;
+
+    private volatile boolean ismScanning;
+
+    private BluetoothAdapter mBluetoothAdapter;
+
     @Inject
     protected BootstrapServiceProvider serviceProvider;
 
@@ -75,12 +105,152 @@ public class MainActivity extends BootstrapFragmentActivity {
     private CharSequence title;
     private NavigationDrawerFragment navigationDrawerFragment;
 
+    private BluetoothGattCallback callback = new BluetoothGattCallback() {
+        // Called whenever the device connection state changes, i.e. from disconnected to connected.
+        @Override
+        public void onConnectionStateChange(BluetoothGatt gatt, int status, int newState) {
+            super.onConnectionStateChange(gatt, status, newState);
+            if (newState == BluetoothGatt.STATE_CONNECTED) {
+                writeLine("connected");
+                // Discover services.
+                if (!gatt.discoverServices()) {
+                    writeLine("failed to start discovering services!");
+                }
+            }
+            else if (newState == BluetoothGatt.STATE_DISCONNECTED) {
+                writeLine("disconnected!");
+            }
+            else {
+                writeLine("connection state changed, new state: " + newState);
+            }
+        }
+
+        // Called when services have been discovered on the remote device.
+        // It seems to be necessary to wait for this discovery to occur before
+        // manipulating any services or characteristics.
+        @Override
+        public void onServicesDiscovered(BluetoothGatt gatt, int status) {
+            super.onServicesDiscovered(gatt, status);
+            if (status == BluetoothGatt.GATT_SUCCESS) {
+                writeLine("service discovery completed!");
+            }
+            else {
+                writeLine("service discovery failed with status: " + status);
+            }
+            // Save reference to each characteristic.
+            tx = gatt.getService(UART_UUID).getCharacteristic(TX_UUID);
+            rx = gatt.getService(UART_UUID).getCharacteristic(RX_UUID);
+            // Setup notifications on RX characteristic changes (i.e. data received).
+            // First call setCharacteristicNotification to enable notification.
+            if (!gatt.setCharacteristicNotification(rx, true)) {
+                writeLine("Couldn't set notifications for RX characteristic!");
+            }
+            // Next update the RX characteristic's client descriptor to enable notifications.
+            if (rx.getDescriptor(CLIENT_UUID) != null) {
+                BluetoothGattDescriptor desc = rx.getDescriptor(CLIENT_UUID);
+                desc.setValue(BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE);
+                if (!gatt.writeDescriptor(desc)) {
+                    writeLine("Couldn't write RX client descriptor value!");
+                }
+            }
+            else {
+                writeLine("Couldn't get RX client descriptor!");
+            }
+        }
+
+        // Called when a remote characteristic changes (like the RX characteristic).
+        @Override
+        public void onCharacteristicChanged(BluetoothGatt gatt, BluetoothGattCharacteristic characteristic) {
+            super.onCharacteristicChanged(gatt, characteristic);
+            writeLine("Received: " + characteristic.getStringValue(0));
+        }
+    };
+
+    public void sendMessage(String message) {
+        if (tx == null || message == null || message.isEmpty()) {
+            // Do nothing if there is no device or message to send.
+            return;
+        }
+        // Update TX characteristic value.  Note the setValue overload that takes a byte array must be used.
+        tx.setValue(message.getBytes(Charset.forName("UTF-8")));
+        if (gatt.writeCharacteristic(tx)) {
+            writeLine("Sent: " + message);
+        }
+        else {
+            writeLine("Couldn't write TX characteristic!");
+        }
+    }
+
+    // BTLE device scanning callback.
+    private BluetoothAdapter.LeScanCallback scanCallback = new BluetoothAdapter.LeScanCallback() {
+        // Called when a device is found.
+        @Override
+        public void onLeScan(BluetoothDevice bluetoothDevice, int i, byte[] bytes) {
+            if (!ismScanning) {
+                return;
+            }
+            String address = bluetoothDevice.getAddress();
+            // Check if the device has the UART service.
+            if (bluetoothDevice.getAddress().startsWith("D7:83:D7:1D:A1:D9")) {
+                // Found a device, stop the scan.
+                ismScanning = false;
+                writeLine("Found UART service!");
+                // Connect to the device.
+                // Control flow will now go to the callback functions when BTLE events occur.
+                gatt = bluetoothDevice.connectGatt(getApplicationContext(), false, callback);
+                mBluetoothAdapter.stopLeScan(scanCallback);
+            }
+        }
+    };
+
+    @Override
+    public void onStop() {
+        super.onStop();
+        if (gatt != null) {
+            // For better reliability be careful to disconnect and close the connection.
+            gatt.disconnect();
+            gatt.close();
+            gatt = null;
+            tx = null;
+            rx = null;
+        }
+    }
+
     @Override
     protected void onCreate(final Bundle savedInstanceState) {
+
+        Global.mainActivity = this;
 
         requestWindowFeature(Window.FEATURE_INDETERMINATE_PROGRESS);
 
         super.onCreate(savedInstanceState);
+
+//
+        SharedPreferences sharedPref = getPreferences(Context.MODE_PRIVATE);
+
+        currentDevices = new ArrayList<Device>();
+
+        int size = sharedPref.getInt(Global.NUM_DEVICES, 0);
+        for (int i = 0; i < size; i++) {
+            currentDevices.add(Device.parseString(sharedPref.getString(Global.DEVICES + i, "")));
+        }
+
+        if (currentDevices.isEmpty()) {
+
+            Device newDevice = new Device();
+            newDevice.controls = new ArrayList<Control>();
+            Control newControl = new Control();
+            newControl.customPose = Control.customPoses[0];
+            newControl.setPose = Pose.THUMB_TO_PINKY;
+            newControl.signal = "signal";
+            newDevice.controls.add(newControl);
+            newDevice.name = "HALLO";
+
+            addDevice(newDevice, 0);
+        }
+
+//
+//
 
         if (isTablet()) {
             setContentView(R.layout.main_activity_tablet);
@@ -131,10 +301,22 @@ public class MainActivity extends BootstrapFragmentActivity {
         getSupportActionBar().setDisplayHomeAsUpEnabled(true);
         getSupportActionBar().setHomeButtonEnabled(true);
 
-        userHasAuthenticated = true;
-        initScreen();
+        final BluetoothManager bluetoothManager =
+                (BluetoothManager) getSystemService(Context.BLUETOOTH_SERVICE);
+        mBluetoothAdapter = bluetoothManager.getAdapter();
 
-        // Init the Myo hub (or atleast try to)
+        mHandler = new Handler();
+
+        // Ensures Bluetooth is available on the device and it is enabled. If not,
+        // displays a dialog requesting user permission to enable Bluetooth.
+        if (mBluetoothAdapter == null || !mBluetoothAdapter.isEnabled()) {
+            Intent enableBtIntent = new Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE);
+            startActivityForResult(enableBtIntent, REQUEST_ENABLE_BT);
+        }
+
+        ismScanning = true;
+        //mBluetoothAdapter.startLeScan(scanCallback);
+
         Log.e(TAG, "About to init Hub.");
         Hub hub = Hub.getInstance();
         if (!hub.init(this)) {
@@ -146,11 +328,13 @@ public class MainActivity extends BootstrapFragmentActivity {
 
 
         // Use this instead to connect with a Myo that is very near (ie. almost touching) the device
-        Hub.getInstance().pairWithAdjacentMyo();
+        //Hub.getInstance().pairWithAdjacentMyo();
 
         // Next, register for DeviceListener callbacks.
         hub.addListener(mListener);
 
+        userHasAuthenticated = true;
+        initScreen();
     }
 
     private boolean isTablet() {
@@ -250,10 +434,10 @@ public class MainActivity extends BootstrapFragmentActivity {
                 case REST:
                     switch (mArm) {
                         case LEFT:
-                            Log.e(TAG, "Arm left");
+                            sendMessage("Arm left");
                             break;
                         case RIGHT:
-                            Log.e(TAG, "Arm right");
+                            sendMessage("Arm right");
                             break;
                     }
 
@@ -263,24 +447,49 @@ public class MainActivity extends BootstrapFragmentActivity {
                     break;
 
                 case FIST:
-                    Log.e(TAG, "case FIST");
+                    sendMessage("case FIST");
                     break;
                 case WAVE_IN:
-                    Log.e(TAG, "case WAVE IN");
+                    sendMessage("case WAVE IN");
                     break;
                 case WAVE_OUT:
-                    Log.e(TAG, "case WAVE OUT");
+                    sendMessage("case WAVE OUT");
                     break;
                 case FINGERS_SPREAD:
-                    Log.e(TAG, "case FINGER SPREAD");
+                    sendMessage("case FINGER SPREAD");
                     break;
                 case THUMB_TO_PINKY:
-                    Log.e(TAG, "case THUMB TO DAT PINKY DOE");
+                    sendMessage("case THUMB TO DAT PINKY DOE");
                     break;
             }
             timestampOld = timestamp;
         }
     };
+
+    public void updateDevice(Device d, int index) {
+        SharedPreferences prefs = getPreferences(Context.MODE_PRIVATE);
+
+        SharedPreferences.Editor editor = prefs.edit();
+
+        editor.putString(Global.DEVICES + index, d.toString());
+
+        editor.commit();
+    }
+
+    public void addDevice(Device d, int index) {
+
+        //save the task list to preference
+        currentDevices.add(d);
+        d.id = index;
+        SharedPreferences prefs = getPreferences(Context.MODE_PRIVATE);
+
+        SharedPreferences.Editor editor = prefs.edit();
+
+        editor.putString(Global.DEVICES + index, d.toString());
+        editor.putInt(Global.NUM_DEVICES, index + 1);
+
+        editor.commit();
+    }
 
     private void initScreen() {
         if (userHasAuthenticated) {
@@ -303,9 +512,6 @@ public class MainActivity extends BootstrapFragmentActivity {
         switch (item.getItemId()) {
             case android.R.id.home:
                 //menuDrawer.toggleMenu();
-                return true;
-            case R.id.timer:
-                navigateToTimer();
                 return true;
             default:
                 return super.onOptionsItemSelected(item);
@@ -334,5 +540,38 @@ public class MainActivity extends BootstrapFragmentActivity {
         }
     }
 
+    public void writeLine(final String message) {
+        final Context context = this;
+        runOnUiThread(new Runnable() {
+            @Override
+            public void run() {
+                Toast.makeText(context, message, Toast.LENGTH_SHORT).show();
+            }
+        });
+
+        Log.d("UART", message);
+    }
+
+    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+
+            if(resultCode == RESULT_OK){
+                Control control = (Control) data.getSerializableExtra("result");
+                for (Device device : currentDevices) {
+                    if (device.name.equals(control.deviceName)) {
+                        device.controls.add(control);
+                        updateDevice(device, device.id);
+                        return;
+                    }
+                }
+                Device newDevice = new Device();
+                newDevice.name = control.deviceName;
+                newDevice.controls = new ArrayList<Control>();
+                newDevice.controls.add(control);
+                addDevice(newDevice, currentDevices.size());
+            }
+            if (resultCode == RESULT_CANCELED) {
+                //Write your code if there's no result
+            }
+    }
 
 }

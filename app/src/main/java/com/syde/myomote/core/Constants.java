@@ -99,6 +99,8 @@ public final class Constants {
 
         public static final String USER = "user";
 
+        public static final String CONTROL = "control";
+
     }
 
     public static final class Intent {

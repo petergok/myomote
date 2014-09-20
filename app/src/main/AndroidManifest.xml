@@ -9,9 +9,9 @@
         android:minSdkVersion="18"
         android:targetSdkVersion="19" />
 
-    // Required for communicating with the Myo device
-    <uses-permission android:name="android.permission.BLUETOOTH" />
-    <uses-permission android:name="android.permission.BLUETOOTH_ADMIN" />
+    <uses-permission android:name="android.permission.BLUETOOTH"/>
+    <uses-permission android:name="android.permission.BLUETOOTH_ADMIN"/>
+
 
     // Required for saving Myo settings and other data
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
@@ -74,6 +74,16 @@
 
         <activity
             android:name=".authenticator.BootstrapAuthenticatorActivity"
+            android:excludeFromRecents="true" >
+
+            <!--
+                No intent-filter here! This activity is only ever launched by
+                someone who explicitly knows the class name
+            -->
+        </activity>
+
+        <activity
+            android:name=".ui.CreateControlActivity"
             android:excludeFromRecents="true" >
 
             <!--
