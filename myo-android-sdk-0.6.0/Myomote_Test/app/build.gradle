@@ -1,0 +1,32 @@
+apply plugin: 'com.android.application'
+
+android {
+    compileSdkVersion 20
+    buildToolsVersion "20.0.0"
+
+    defaultConfig {
+        applicationId "com.test.myomote.myomote_test"
+        minSdkVersion 16
+        targetSdkVersion 20
+        versionCode 1
+        versionName "1.0"
+    }
+    buildTypes {
+        release {
+            runProguard false
+            proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
+        }
+    }
+}
+
+dependencies {
+    repositories {
+        maven {
+            // For some weird reason relative paths do not work within windows...
+            url 'C:\\Users\\Brady\\Documents\\htn\\myomote\\myo-android-sdk-0.6.0\\myorepository'
+        }
+    }
+
+    compile('com.thalmic:myosdk:0.6.+@aar')
+    compile fileTree(dir: 'libs', include: ['*.jar'])
+}
