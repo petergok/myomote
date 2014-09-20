@@ -30,10 +30,8 @@ import com.thalmic.myo.Hub;
 import com.thalmic.myo.Myo;
 import com.thalmic.myo.Pose;
 import com.thalmic.myo.Quaternion;
+import com.thalmic.myo.Vector3;
 import com.thalmic.myo.XDirection;
-
-
-
 
 
 import javax.inject.Inject;
@@ -53,10 +51,6 @@ public class MainActivity extends BootstrapFragmentActivity {
 
     @Inject
     protected BootstrapServiceProvider serviceProvider;
-
-
-
-
 
     private boolean userHasAuthenticated = false;
 
@@ -123,6 +117,8 @@ public class MainActivity extends BootstrapFragmentActivity {
         getSupportActionBar().setDisplayHomeAsUpEnabled(true);
         getSupportActionBar().setHomeButtonEnabled(true);
 
+
+        // Init the Myo hub (or atleast try to)
         Log.e(TAG, "About to init Hub.");
         Hub hub = Hub.getInstance();
         if (!hub.init(this)) {
@@ -170,13 +166,27 @@ public class MainActivity extends BootstrapFragmentActivity {
     // Classes that inherit from AbstractDeviceListener can be used to receive events from Myo devices.
     // If you do not override an event, the default behavior is to do nothing.
     private DeviceListener mListener = new AbstractDeviceListener() {
+
+        private boolean hasUserMadePose = false;
         private Arm mArm = Arm.UNKNOWN;
         private XDirection mXDirection = XDirection.UNKNOWN;
 
-        // onConnect() is called whenever a Myo has been connected.
+
+        /* Dump accelerometer data for a gesture */
+        @Override
+        public void onAccelerometerData(Myo myo, long timestamp, Vector3 accel) {
+            //Log.e(TAG, "Accelerometer data gained: " + accel.toString());
+            if (mArm != Arm.UNKNOWN && accel.z() > 1.3 && hasUserMadePose == false) {
+                Log.e(TAG, "Gunshot POSE YA");
+                hasUserMadePose = true;
+                return;
+            }
+        }
+
+        // nConnect() is called whenever a Myo has been connected.
         @Override
         public void onConnect(Myo myo, long timestamp) {
-           Log.e(TAG, "successful connection.");
+            Log.e(TAG, "successful connection.");
         }
 
         // onDisconnect() is called whenever a Myo has been disconnected.
@@ -208,20 +218,19 @@ public class MainActivity extends BootstrapFragmentActivity {
         // represented as a quaternion.
         @Override
         public void onOrientationData(Myo myo, long timestamp, Quaternion rotation) {
-
+            /* Deciding what to do with this... */
         }
 
         // onPose() is called whenever a Myo provides a new pose.
         @Override
         public void onPose(Myo myo, long timestamp, Pose pose) {
-        // Handle the cases of the Pose enumeration, and change the text of the text view
-        // based on the pose we receive.
+            // Handle the cases of the Pose enumeration, and change the text of the text view
+            // based on the pose we receive.
             switch (pose) {
                 case UNKNOWN:
                     Log.e(TAG, "case unknown");
                     break;
                 case REST:
-
                     switch (mArm) {
                         case LEFT:
                             Log.e(TAG, "Arm left");
@@ -231,24 +240,40 @@ public class MainActivity extends BootstrapFragmentActivity {
                             break;
                     }
 
+                    hasUserMadePose = false;
                     break;
+
                 case FIST:
-                    Log.e(TAG, "case FIST");
+                    if(validatePose(hasUserMadePose))
+                        Log.e(TAG, "case FIST");
                     break;
                 case WAVE_IN:
-                    Log.e(TAG, "case WAVE IN");
+                    if(validatePose(hasUserMadePose))
+                        Log.e(TAG, "case WAVE IN");
                     break;
                 case WAVE_OUT:
-                    Log.e(TAG, "case WAVE OUT");
+                    if(validatePose(hasUserMadePose))
+                        Log.e(TAG, "case WAVE OUT");
                     break;
                 case FINGERS_SPREAD:
-                    Log.e(TAG, "case FINGER SPREAD");
+                    if(validatePose(hasUserMadePose))
+                        Log.e(TAG, "case FINGER SPREAD");
                     break;
                 case THUMB_TO_PINKY:
-                    Log.e(TAG, "case THUMB TO DAT PINKY DOE");
+                    if(validatePose(hasUserMadePose))
+                        Log.e(TAG, "case THUMB TO DAT PINKY DOE");
                     break;
             }
         }
+    };
+
+    // If a pose made using a non pose object has been tripped
+    // block all other poses from occurring
+    private boolean validatePose(boolean userMadePose){
+        if(userMadePose == true)
+            return false;
+        else
+            return true;
     };
 
     private void initScreen() {
@@ -259,17 +284,6 @@ public class MainActivity extends BootstrapFragmentActivity {
             fragmentManager.beginTransaction()
                     .replace(R.id.container, new CarouselFragment())
                     .commit();
-
-            Hub hub = Hub.getInstance();
-            if (!hub.init(this)) {
-                Log.e(TAG, "Could not initialize the Hub.");
-                finish();
-                return;
-            }
-
-            /* Pair with the closest myo to the device for now...*/
-            hub.getInstance().pairWithAdjacentMyo();
-
         }
     }
 
