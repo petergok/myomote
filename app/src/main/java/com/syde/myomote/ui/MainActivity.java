@@ -165,7 +165,6 @@ public class MainActivity extends BootstrapFragmentActivity {
     // If you do not override an event, the default behavior is to do nothing.
     private DeviceListener mListener = new AbstractDeviceListener() {
 
-        //private boolean hasUserMadePose = false;
         private long timestampOld;
         private Arm mArm = Arm.UNKNOWN;
         private XDirection mXDirection = XDirection.UNKNOWN;
@@ -176,9 +175,8 @@ public class MainActivity extends BootstrapFragmentActivity {
         public void onAccelerometerData(Myo myo, long timestamp, Vector3 accel) {
             //Log.e(TAG, "Accelerometer data gained: " + accel.toString());
             if (timestamp - timestampOld > 500) {
-                if (mArm != Arm.UNKNOWN && accel.z() > 1.3 /*&& hasUserMadePose == false*/) {
+                if (mArm != Arm.UNKNOWN && accel.z() > 1.3) {
                     Log.e(TAG, "Gunshot POSE YA");
-                    //hasUserMadePose = true;
                     onPose(myo, timestamp, Pose.REST);
                     return;
                 }
@@ -247,46 +245,27 @@ public class MainActivity extends BootstrapFragmentActivity {
                     //Let the user know they are done the current pose
                     //and in the rest state
                     myo.vibrate(Myo.VibrationType.SHORT);
-
-                    //Reset the custom poses that we implemented...
-                    //hasUserMadePose = false;
                     break;
 
                 case FIST:
-                    //if(validatePose(hasUserMadePose))
                     Log.e(TAG, "case FIST");
                     break;
                 case WAVE_IN:
-                    //if(validatePose(hasUserMadePose))
                     Log.e(TAG, "case WAVE IN");
                     break;
                 case WAVE_OUT:
-                    //if(validatePose(hasUserMadePose))
                     Log.e(TAG, "case WAVE OUT");
                     break;
                 case FINGERS_SPREAD:
-                    //if(validatePose(hasUserMadePose))
                     Log.e(TAG, "case FINGER SPREAD");
                     break;
                 case THUMB_TO_PINKY:
-                    //if(validatePose(hasUserMadePose))
                     Log.e(TAG, "case THUMB TO DAT PINKY DOE");
                     break;
             }
             timestampOld = timestamp;
         }
     };
-
-    // If a pose made using a non pose object has been tripped
-    // block all other poses from occurring
-    private boolean validatePose(boolean userMadePose) {
-        if (userMadePose == true)
-            return false;
-        else
-            return true;
-    }
-
-    ;
 
     private void initScreen() {
         if (userHasAuthenticated) {
