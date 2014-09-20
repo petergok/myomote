@@ -9,6 +9,7 @@ import android.os.Bundle;
 import android.support.v4.app.ActionBarDrawerToggle;
 import android.support.v4.app.FragmentManager;
 import android.support.v4.widget.DrawerLayout;
+import android.util.Log;
 import android.view.MenuItem;
 import android.view.View;
 import android.view.Window;
@@ -21,6 +22,7 @@ import com.syde.myomote.util.Ln;
 import com.syde.myomote.util.SafeAsyncTask;
 import com.syde.myomote.util.UIUtils;
 import com.squareup.otto.Subscribe;
+import com.thalmic.myo.Hub;
 
 import javax.inject.Inject;
 
@@ -34,6 +36,8 @@ import butterknife.Views;
  * {@link com.syde.myomote.authenticator.ApiKeyProvider#getAuthKey(android.app.Activity)}
  */
 public class MainActivity extends BootstrapFragmentActivity {
+
+    private static final String TAG = "Myo";
 
     @Inject protected BootstrapServiceProvider serviceProvider;
 
@@ -139,6 +143,17 @@ public class MainActivity extends BootstrapFragmentActivity {
             fragmentManager.beginTransaction()
                     .replace(R.id.container, new CarouselFragment())
                     .commit();
+
+            Hub hub = Hub.getInstance();
+            if (!hub.init(this)) {
+                Log.e(TAG, "Could not initialize the Hub.");
+                finish();
+                return;
+            }
+
+            /* Pair with the closest myo to the device for now...*/
+            hub.getInstance().pairWithAdjacentMyo();
+
         }
 
     }
