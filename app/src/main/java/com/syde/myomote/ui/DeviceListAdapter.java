@@ -5,6 +5,7 @@ import android.view.LayoutInflater;
 
 import com.syde.myomote.BootstrapApplication;
 import com.syde.myomote.R;
+import com.syde.myomote.core.Control;
 import com.syde.myomote.core.Device;
 import com.syde.myomote.core.User;
 import com.github.kevinsawicki.wishlist.SingleTypeAdapter;
@@ -16,7 +17,7 @@ import java.util.List;
 /**
  * Adapter to display a list of traffic items
  */
-public class DeviceListAdapter extends SingleTypeAdapter<Device> {
+public class DeviceListAdapter extends SingleTypeAdapter<Control> {
 
     private static final SimpleDateFormat DATE_FORMAT = new SimpleDateFormat("MMMM dd");
 
@@ -24,7 +25,7 @@ public class DeviceListAdapter extends SingleTypeAdapter<Device> {
      * @param inflater
      * @param items
      */
-    public DeviceListAdapter(final LayoutInflater inflater, final List<Device> items) {
+    public DeviceListAdapter(final LayoutInflater inflater, final List<Control> items) {
         super(inflater, R.layout.user_list_item);
 
         setItems(items);
@@ -49,9 +50,9 @@ public class DeviceListAdapter extends SingleTypeAdapter<Device> {
     }
 
     @Override
-    protected void update(final int position, final Device device) {
+    protected void update(final int position, final Control control) {
 
-        setText(1, String.format("%1$s %2$s", device.controls, device.name));
+        setText(1, String.format("%1$s", control));
 
     }
 

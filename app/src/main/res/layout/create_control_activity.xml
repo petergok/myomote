@@ -29,6 +29,7 @@
     </LinearLayout>
 
     <TextView
+        android:id="@+id/gestureText"
         android:visibility="invisible"
         android:layout_margin="10dp"
         android:layout_height="wrap_content"
@@ -46,6 +47,7 @@
         android:text="Click to Assign Gesture"/>
 
     <TextView
+        android:id="@+id/signalText"
         android:visibility="invisible"
         android:layout_margin="10dp"
         android:layout_height="wrap_content"
@@ -61,6 +63,24 @@
         android:layout_height="wrap_content"
         android:id="@+id/recordSignal"
         android:text="Click to Record Signal"/>
+
+    <TextView
+        android:id="@+id/nameText"
+        android:visibility="invisible"
+        android:layout_margin="10dp"
+        android:layout_height="wrap_content"
+        android:layout_width="match_parent"
+        android:gravity="center"
+        android:textSize="20sp"
+        android:text="Name: Not Set"/>
+
+    <Button
+        android:layout_marginLeft="15dp"
+        android:layout_marginRight="15dp"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:id="@+id/setName"
+        android:text="Click to Name Gesture"/>
 
     <LinearLayout
         android:layout_width="match_parent"

@@ -2,7 +2,6 @@
 
 package com.syde.myomote.ui;
 
-import android.accounts.OperationCanceledException;
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
 import android.bluetooth.BluetoothGatt;
@@ -14,7 +13,6 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.content.res.Configuration;
-import android.gesture.Gesture;
 import android.os.Bundle;
 import android.os.Handler;
 import android.support.v4.app.ActionBarDrawerToggle;
@@ -30,13 +28,11 @@ import android.widget.Toast;
 import com.squareup.otto.Subscribe;
 import com.syde.myomote.BootstrapServiceProvider;
 import com.syde.myomote.R;
-import com.syde.myomote.core.BootstrapService;
 import com.syde.myomote.core.Control;
 import com.syde.myomote.core.Device;
 import com.syde.myomote.core.Global;
 import com.syde.myomote.events.NavItemSelectedEvent;
 import com.syde.myomote.util.Ln;
-import com.syde.myomote.util.SafeAsyncTask;
 import com.syde.myomote.util.UIUtils;
 import com.thalmic.myo.AbstractDeviceListener;
 import com.thalmic.myo.Arm;
@@ -48,11 +44,8 @@ import com.thalmic.myo.Quaternion;
 import com.thalmic.myo.Vector3;
 import com.thalmic.myo.XDirection;
 
-import java.nio.ByteBuffer;
-import java.nio.ByteOrder;
 import java.nio.charset.Charset;
 import java.util.ArrayList;
-import java.util.List;
 import java.util.UUID;
 
 import javax.inject.Inject;
@@ -73,8 +66,6 @@ public class MainActivity extends BootstrapFragmentActivity {
 
     private CarouselFragment carouselFragment;
 
-    public static ArrayList<Device> currentDevices;
-
     // UUIDs for UAT service and associated characteristics.
     public static UUID UART_UUID = UUID.fromString("6E400001-B5A3-F393-E0A9-E50E24DCCA9E");
     public static UUID TX_UUID = UUID.fromString("6E400002-B5A3-F393-E0A9-E50E24DCCA9E");
@@ -90,6 +81,8 @@ public class MainActivity extends BootstrapFragmentActivity {
     private BluetoothGattCharacteristic rx;
 
     private Handler mHandler;
+
+    public float roll = 0.0f;
 
     // Stops scanning after 10 seconds.
     private static final long SCAN_PERIOD = 1000000;
@@ -167,7 +160,13 @@ public class MainActivity extends BootstrapFragmentActivity {
         @Override
         public void onCharacteristicChanged(BluetoothGatt gatt, BluetoothGattCharacteristic characteristic) {
             super.onCharacteristicChanged(gatt, characteristic);
-            writeLine("Received: " + characteristic.getStringValue(0));
+            String value = characteristic.getStringValue(0);
+
+            if (Global.createControlActivity != null && Global.createControlActivity.hasWindowFocus()) {
+                Global.createControlActivity.receivedSignal(value);
+            }
+
+            writeLine("Received: " + value);
         }
     };
 
@@ -179,10 +178,10 @@ public class MainActivity extends BootstrapFragmentActivity {
         // Update TX characteristic value.  Note the setValue overload that takes a byte array must be used.
         tx.setValue(message.getBytes(Charset.forName("UTF-8")));
         if (gatt.writeCharacteristic(tx)) {
-            writeLine("Sent: " + message);
+           // writeLine("Sent: " + message);
         }
         else {
-            writeLine("Couldn't write TX characteristic!");
+            //writeLine("Couldn't write TX characteristic!");
         }
     }
 
@@ -223,14 +222,14 @@ public class MainActivity extends BootstrapFragmentActivity {
 
         SharedPreferences sharedPref = getPreferences(Context.MODE_PRIVATE);
 
-        currentDevices = new ArrayList<Device>();
+        Global.currentDevices = new ArrayList<Device>();
 
         int size = sharedPref.getInt(Global.NUM_DEVICES, 0);
         for (int i = 0; i < size; i++) {
-            currentDevices.add(Device.parseString(sharedPref.getString(Global.DEVICES + i, "")));
+            Global.currentDevices.add(Device.parseString(sharedPref.getString(Global.DEVICES + i, "")));
         }
 
-        if (currentDevices.isEmpty()) {
+        if (Global.currentDevices.isEmpty()) {
 
             Device newDevice = new Device();
             newDevice.controls = new ArrayList<Control>();
@@ -243,14 +242,14 @@ public class MainActivity extends BootstrapFragmentActivity {
             newDevice.controls.add(newControl);
 
             newControl = new Control();
-            newControl.name = "Channel_Up";
+            newControl.name = "Volume_Up";
             newControl.customPose = "";
             newControl.setPose = Pose.WAVE_OUT;
             newControl.signal = "1";
             newDevice.controls.add(newControl);
 
             newControl = new Control();
-            newControl.name = "Channel_Down";
+            newControl.name = "Volume_Down";
             newControl.customPose = "";
             newControl.setPose = Pose.WAVE_IN;
             newControl.signal = "2";
@@ -326,7 +325,7 @@ public class MainActivity extends BootstrapFragmentActivity {
         }
 
         ismScanning = true;
-        mBluetoothAdapter.startLeScan(scanCallback);
+       // mBluetoothAdapter.startLeScan(scanCallback);
 
         writeLine("About to init Hub.");
         Hub hub = Hub.getInstance();
@@ -387,7 +386,7 @@ public class MainActivity extends BootstrapFragmentActivity {
             //writeLine("Accelerometer data gained: " + accel.toString());
             if (timestamp - timestampOld > 500) {
                 if (mArm != Arm.UNKNOWN && accel.z() > 1.3) {
-                    writeLine("Gunshot POSE YA");
+                    //writeLine("Gunshot POSE YA");
                     gunShotPose = true;
                     onPose(myo, timestamp, Pose.REST);
                     return;
@@ -433,7 +432,7 @@ public class MainActivity extends BootstrapFragmentActivity {
         public void onOrientationData(Myo myo, long timestamp, Quaternion rotation) {
             if(mArm != Arm.UNKNOWN){
                 // Calculate Euler angles (roll, pitch, and yaw) from the quaternion.
-                float roll = (float) Math.toDegrees(Quaternion.roll(rotation));
+                roll = (float) Math.toDegrees(Quaternion.roll(rotation));
 
                 // Adjust roll and pitch for the orientation of the Myo on the arm.
                 if (mXDirection == XDirection.TOWARD_ELBOW) {
@@ -451,10 +450,20 @@ public class MainActivity extends BootstrapFragmentActivity {
             // Handle the cases of the Pose enumeration, and change the text of the text view
             // based on the pose we receive.
 
-            for (Device device : currentDevices) {
+            for (Device device : Global.currentDevices) {
                 Control control;
-                if ((control = device.getControl(pose, gunShotPose ? "gunShot" : "")) != null) {
-                    writeLine(control.signal);
+                String customPose = "";
+                if (gunShotPose) {
+                    customPose = "gunShot";
+                } else if (roll > 20 && pose.equals(Pose.FIST)) {
+                    customPose = "rollRight";
+                    Log.e(TAG, "rollRight");
+                } else if (roll < -20 && pose.equals(Pose.FIST)) {
+                    customPose = "rollLeft";
+                    Log.e(TAG, "rollLeft");
+                }
+                if ((control = device.getControl(pose, customPose)) != null) {
+                    //writeLine(control.signal);
                     sendMessage(control.signal);
                 }
             }
@@ -513,7 +522,7 @@ public class MainActivity extends BootstrapFragmentActivity {
     public void addDevice(Device d, int index) {
 
         //save the task list to preference
-        currentDevices.add(d);
+        Global.currentDevices.add(d);
         d.id = index;
         SharedPreferences prefs = getPreferences(Context.MODE_PRIVATE);
 
@@ -591,7 +600,7 @@ public class MainActivity extends BootstrapFragmentActivity {
 
             if(resultCode == RESULT_OK){
                 Control control = (Control) data.getSerializableExtra("result");
-                for (Device device : currentDevices) {
+                for (Device device : Global.currentDevices) {
                     if (device.name.equals(control.deviceName)) {
                         device.controls.add(control);
                         updateDevice(device, device.id);
@@ -602,7 +611,7 @@ public class MainActivity extends BootstrapFragmentActivity {
                 newDevice.name = control.deviceName;
                 newDevice.controls = new ArrayList<Control>();
                 newDevice.controls.add(control);
-                addDevice(newDevice, currentDevices.size());
+                addDevice(newDevice, Global.currentDevices.size());
             }
             if (resultCode == RESULT_CANCELED) {
                 //Write your code if there's no result

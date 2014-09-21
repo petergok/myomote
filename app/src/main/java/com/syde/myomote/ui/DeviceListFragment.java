@@ -2,18 +2,24 @@ package com.syde.myomote.ui;
 
 import android.accounts.OperationCanceledException;
 import android.app.Activity;
+import android.app.AlertDialog;
 import android.content.Context;
+import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.os.Bundle;
 import android.support.v4.content.Loader;
+import android.text.TextUtils;
+import android.view.LayoutInflater;
 import android.view.View;
+import android.widget.EditText;
 import android.widget.ListView;
 
 import com.github.kevinsawicki.wishlist.SingleTypeAdapter;
 import com.syde.myomote.Injector;
 import com.syde.myomote.R;
 import com.syde.myomote.authenticator.LogoutService;
+import com.syde.myomote.core.Control;
 import com.syde.myomote.core.Device;
 import com.syde.myomote.core.Global;
 import com.syde.myomote.core.News;
@@ -34,7 +40,7 @@ import static com.syde.myomote.core.Constants.Extra.NEWS_ITEM;
 /**
  * Created by pgokhshteyn on 9/20/14.
  */
-public class DeviceListFragment extends ItemListFragment<Device> {
+public class DeviceListFragment extends ItemListFragment<Control> {
 
     @Inject
     protected LogoutService logoutService;
@@ -53,20 +59,20 @@ public class DeviceListFragment extends ItemListFragment<Device> {
     }
 
     @Override
-    public Loader<List<Device>> onCreateLoader(final int id, final Bundle args) {
-        final List<Device> initialItems = items;
-        return new ThrowableLoader<List<Device>>(getActivity(), items) {
+    public Loader<List<Control>> onCreateLoader(final int id, final Bundle args) {
+        final List<Control> initialItems = items;
+        return new ThrowableLoader<List<Control>>(getActivity(), items) {
             @Override
-            public List<Device> loadData() throws Exception {
+            public List<Control> loadData() throws Exception {
 
                 try {
                     SharedPreferences sharedPref = Global.mainActivity.getPreferences(Context.MODE_PRIVATE);
 
-                    List<Device> latest = new ArrayList<Device>();
+                    List<Control> latest = new ArrayList<Control>();
 
                     int size = sharedPref.getInt(Global.NUM_DEVICES, 0);
                     for (int i = 0; i < size; i++) {
-                        latest.add(Device.parseString(sharedPref.getString(Global.DEVICES + i, "")));
+                        latest.addAll(Device.parseString(sharedPref.getString(Global.DEVICES + i, "")).controls);
                     }
 
                     if (latest != null) {
@@ -97,7 +103,31 @@ public class DeviceListFragment extends ItemListFragment<Device> {
     }
 
     @Override
-    protected SingleTypeAdapter<Device> createAdapter(final List<Device> items) {
+    protected SingleTypeAdapter<Control> createAdapter(final List<Control> items) {
         return new DeviceListAdapter(getActivity().getLayoutInflater(), items);
+    }
+
+    public void onListItemClick(ListView l, View v, final int position, long id) {
+        // Inflate the edit text view and add it to the dialog
+        final ItemListFragment fragment = this;
+        AlertDialog.Builder builder = new AlertDialog.Builder(getActivity(), AlertDialog.THEME_HOLO_DARK);
+        AlertDialog otherDialog = builder.setCancelable(false)
+                .setTitle("Would you like to delete this control?")
+                .setPositiveButton("Yes", new DialogInterface.OnClickListener() {
+                    @Override
+                    public void onClick(DialogInterface dialog, int which)
+                    {
+                        for (Device device : Global.currentDevices) {
+                            Control control = ((Control)fragment.getListView().getItemAtPosition(position));
+                            Control removeControl = null;
+                            if ((removeControl = device.getControl(control.setPose, control.customPose)) != null) {
+                                device.controls.remove(removeControl);
+                                Global.mainActivity.updateDevice(device, device.id);
+                            }
+                        }
+                    }
+                }).setNegativeButton("No", null)
+                .create();
+        otherDialog.show();
     }
 }
