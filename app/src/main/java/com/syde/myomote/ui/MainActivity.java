@@ -36,7 +36,6 @@ import javax.inject.Inject;
 
 import butterknife.Views;
 
-
 /**
  * Initial activity for the application.
  * <p/>
@@ -169,26 +168,7 @@ public class MainActivity extends BootstrapFragmentActivity {
         private Arm mArm = Arm.UNKNOWN;
         private XDirection mXDirection = XDirection.UNKNOWN;
         
-        /*
-                @Override
-        public void onOrientationData(Myo myo, long timestamp, Quaternion rotation) {
-            // Calculate Euler angles (roll, pitch, and yaw) from the quaternion.
-            float roll = (float) Math.toDegrees(Quaternion.roll(rotation));
-            float pitch = (float) Math.toDegrees(Quaternion.pitch(rotation));
-            float yaw = (float) Math.toDegrees(Quaternion.yaw(rotation));
 
-            // Adjust roll and pitch for the orientation of the Myo on the arm.
-            if (mXDirection == XDirection.TOWARD_ELBOW) {
-                roll *= -1;
-                pitch *= -1;
-            }
-
-            // Next, we apply a rotation to the text view using the roll, pitch, and yaw.
-            mTextView.setRotation(roll);
-            mTextView.setRotationX(pitch);
-            mTextView.setRotationY(yaw);
-        }
-        */
         
         /* Dump accelerometer data for a gesture */
         @Override
@@ -236,10 +216,22 @@ public class MainActivity extends BootstrapFragmentActivity {
 
         // onOrientationData() is called whenever a Myo provides its current orientation,
         // represented as a quaternion.
+
         @Override
         public void onOrientationData(Myo myo, long timestamp, Quaternion rotation) {
-            /* Deciding what to do with this... */
+            if(mArm != Arm.UNKNOWN){
+                // Calculate Euler angles (roll, pitch, and yaw) from the quaternion.
+                float roll = (float) Math.toDegrees(Quaternion.roll(rotation));
+
+                // Adjust roll and pitch for the orientation of the Myo on the arm.
+                if (mXDirection == XDirection.TOWARD_ELBOW) {
+                    roll *= -1;
+                }
+
+                //Log.e(TAG, "Orientation: " + roll);
+            }
         }
+
 
         // onPose() is called whenever a Myo provides a new pose.
         @Override
