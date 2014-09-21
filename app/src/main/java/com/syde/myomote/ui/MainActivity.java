@@ -59,7 +59,6 @@ import javax.inject.Inject;
 
 import butterknife.Views;
 
-
 /**
  * Initial activity for the application.
  * <p/>
@@ -379,8 +378,9 @@ public class MainActivity extends BootstrapFragmentActivity {
         private long timestampOld;
         private Arm mArm = Arm.UNKNOWN;
         private XDirection mXDirection = XDirection.UNKNOWN;
+        
 
-
+        
         /* Dump accelerometer data for a gesture */
         @Override
         public void onAccelerometerData(Myo myo, long timestamp, Vector3 accel) {
@@ -428,10 +428,22 @@ public class MainActivity extends BootstrapFragmentActivity {
 
         // onOrientationData() is called whenever a Myo provides its current orientation,
         // represented as a quaternion.
+
         @Override
         public void onOrientationData(Myo myo, long timestamp, Quaternion rotation) {
-            /* Deciding what to do with this... */
+            if(mArm != Arm.UNKNOWN){
+                // Calculate Euler angles (roll, pitch, and yaw) from the quaternion.
+                float roll = (float) Math.toDegrees(Quaternion.roll(rotation));
+
+                // Adjust roll and pitch for the orientation of the Myo on the arm.
+                if (mXDirection == XDirection.TOWARD_ELBOW) {
+                    roll *= -1;
+                }
+
+                //Log.e(TAG, "Orientation: " + roll);
+            }
         }
+
 
         // onPose() is called whenever a Myo provides a new pose.
         @Override
