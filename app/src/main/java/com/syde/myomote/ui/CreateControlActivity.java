@@ -33,7 +33,7 @@ public class CreateControlActivity extends BootstrapActivity {
         control.setPose = Pose.THUMB_TO_PINKY;
         control.customPose = "";
         control.deviceName = "HALLO";
-        control.signal = "sdfsdfs";
+        control.signal = "4321";
 
         setContentView(R.layout.create_control_activity);
 

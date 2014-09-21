@@ -177,6 +177,9 @@ public abstract class ItemListFragment<E> extends Fragment
             case id.create:
                 createControl();
                 return true;
+            case id.refresh:
+                refresh();
+                return true;
             default:
                 return super.onOptionsItemSelected(item);
         }

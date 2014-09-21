@@ -38,12 +38,9 @@ public class BootstrapPagerAdapter extends FragmentPagerAdapter {
         final Fragment result;
         switch (position) {
             case 0:
-                result = new NewsListFragment();
-                break;
-            case 1:
                 result = new DeviceListFragment();
                 break;
-            case 2:
+            case 1:
                 result = new CheckInsListFragment();
                 break;
             default:
@@ -60,10 +57,8 @@ public class BootstrapPagerAdapter extends FragmentPagerAdapter {
     public CharSequence getPageTitle(final int position) {
         switch (position) {
             case 0:
-                return "News";
-            case 1:
                 return "Devices";
-            case 2:
+            case 1:
                 return resources.getString(R.string.page_checkins);
             default:
                 return null;

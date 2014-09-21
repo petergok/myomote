@@ -16,6 +16,7 @@ public class Control implements Serializable {
     public String customPose;
     public String signal;
     public String deviceName;
+    public String name;
 
     public String toString() {
         String string = signal;
@@ -24,6 +25,7 @@ public class Control implements Serializable {
         } else {
             string += " " + setPose.name();
         }
+        string += " " + name;
         return string;
     }
 
@@ -36,12 +38,14 @@ public class Control implements Serializable {
         for (String defPose : customPoses) {
             if (pose.equals(defPose)) {
                 newControl.customPose = pose;
+                newControl.name = st.nextToken();
                 return newControl;
             }
         }
 
         newControl.customPose = "";
         newControl.setPose = Pose.valueOf(pose);
+        newControl.name = st.nextToken();
         return newControl;
     }
 }

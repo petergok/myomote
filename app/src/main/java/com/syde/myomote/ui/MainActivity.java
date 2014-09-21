@@ -21,6 +21,7 @@ import android.support.v4.app.ActionBarDrawerToggle;
 import android.support.v4.app.FragmentManager;
 import android.support.v4.widget.DrawerLayout;
 import android.util.Log;
+import android.view.Gravity;
 import android.view.MenuItem;
 import android.view.View;
 import android.view.Window;
@@ -71,6 +72,8 @@ public class MainActivity extends BootstrapFragmentActivity {
 
     private static int REQUEST_ENABLE_BT = 1;
 
+    private CarouselFragment carouselFragment;
+
     public static ArrayList<Device> currentDevices;
 
     // UUIDs for UAT service and associated characteristics.
@@ -80,6 +83,8 @@ public class MainActivity extends BootstrapFragmentActivity {
     // UUID for the BTLE client characteristic which is necessary for notifications.
     public static UUID CLIENT_UUID = UUID.fromString("00002902-0000-1000-8000-00805f9b34fb");
 
+    public boolean gunShotPose = false;
+
     // BTLE state
     private BluetoothGatt gatt;
     private BluetoothGattCharacteristic tx;
@@ -88,7 +93,7 @@ public class MainActivity extends BootstrapFragmentActivity {
     private Handler mHandler;
 
     // Stops scanning after 10 seconds.
-    private static final long SCAN_PERIOD = 100000;
+    private static final long SCAN_PERIOD = 1000000;
 
     private volatile boolean ismScanning;
 
@@ -119,6 +124,7 @@ public class MainActivity extends BootstrapFragmentActivity {
             }
             else if (newState == BluetoothGatt.STATE_DISCONNECTED) {
                 writeLine("disconnected!");
+                ismScanning = true;
             }
             else {
                 writeLine("connection state changed, new state: " + newState);
@@ -186,9 +192,6 @@ public class MainActivity extends BootstrapFragmentActivity {
         // Called when a device is found.
         @Override
         public void onLeScan(BluetoothDevice bluetoothDevice, int i, byte[] bytes) {
-            if (!ismScanning) {
-                return;
-            }
             String address = bluetoothDevice.getAddress();
             // Check if the device has the UART service.
             if (bluetoothDevice.getAddress().startsWith("D7:83:D7:1D:A1:D9")) {
@@ -204,16 +207,10 @@ public class MainActivity extends BootstrapFragmentActivity {
     };
 
     @Override
-    public void onStop() {
-        super.onStop();
-        if (gatt != null) {
-            // For better reliability be careful to disconnect and close the connection.
-            gatt.disconnect();
-            gatt.close();
-            gatt = null;
-            tx = null;
-            rx = null;
-        }
+    public void onResume() {
+        super.onResume();
+        ismScanning = true;
+        mBluetoothAdapter.startLeScan(scanCallback);
     }
 
     @Override
@@ -225,7 +222,6 @@ public class MainActivity extends BootstrapFragmentActivity {
 
         super.onCreate(savedInstanceState);
 
-//
         SharedPreferences sharedPref = getPreferences(Context.MODE_PRIVATE);
 
         currentDevices = new ArrayList<Device>();
@@ -239,18 +235,32 @@ public class MainActivity extends BootstrapFragmentActivity {
 
             Device newDevice = new Device();
             newDevice.controls = new ArrayList<Control>();
+
             Control newControl = new Control();
+            newControl.name = "Power";
             newControl.customPose = Control.customPoses[0];
-            newControl.setPose = Pose.THUMB_TO_PINKY;
-            newControl.signal = "signal";
+            newControl.setPose = null;
+            newControl.signal = "0";
             newDevice.controls.add(newControl);
-            newDevice.name = "HALLO";
+
+            newControl = new Control();
+            newControl.name = "Channel_Up";
+            newControl.customPose = "";
+            newControl.setPose = Pose.WAVE_OUT;
+            newControl.signal = "1";
+            newDevice.controls.add(newControl);
+
+            newControl = new Control();
+            newControl.name = "Channel_Down";
+            newControl.customPose = "";
+            newControl.setPose = Pose.WAVE_IN;
+            newControl.signal = "2";
+            newDevice.controls.add(newControl);
+
+            newDevice.name = "Dynex_TV";
 
             addDevice(newDevice, 0);
         }
-
-//
-//
 
         if (isTablet()) {
             setContentView(R.layout.main_activity_tablet);
@@ -264,7 +274,7 @@ public class MainActivity extends BootstrapFragmentActivity {
         // Set up navigation drawer
         title = drawerTitle = getTitle();
 
-        if (!isTablet()) {
+        if(!isTablet()) {
             drawerLayout = (DrawerLayout) findViewById(R.id.drawer_layout);
             drawerToggle = new ActionBarDrawerToggle(
                     this,                    /* Host activity */
@@ -296,6 +306,8 @@ public class MainActivity extends BootstrapFragmentActivity {
             navigationDrawerFragment.setUp(
                     R.id.navigation_drawer,
                     (DrawerLayout) findViewById(R.id.drawer_layout));
+
+            drawerLayout.closeDrawer(Gravity.LEFT);
         }
 
         getSupportActionBar().setDisplayHomeAsUpEnabled(true);
@@ -315,20 +327,20 @@ public class MainActivity extends BootstrapFragmentActivity {
         }
 
         ismScanning = true;
-        //mBluetoothAdapter.startLeScan(scanCallback);
+        mBluetoothAdapter.startLeScan(scanCallback);
 
-        Log.e(TAG, "About to init Hub.");
+        writeLine("About to init Hub.");
         Hub hub = Hub.getInstance();
         if (!hub.init(this)) {
-            Log.e(TAG, "Could not initialize the Hub.");
+            writeLine("Could not initialize the Hub.");
             finish();
             return;
         }
-        Log.e(TAG, "Hub initialized!.");
+        writeLine("Hub initialized!.");
 
 
         // Use this instead to connect with a Myo that is very near (ie. almost touching) the device
-        //Hub.getInstance().pairWithAdjacentMyo();
+        Hub.getInstance().pairWithAdjacentMyo();
 
         // Next, register for DeviceListener callbacks.
         hub.addListener(mListener);
@@ -372,10 +384,11 @@ public class MainActivity extends BootstrapFragmentActivity {
         /* Dump accelerometer data for a gesture */
         @Override
         public void onAccelerometerData(Myo myo, long timestamp, Vector3 accel) {
-            //Log.e(TAG, "Accelerometer data gained: " + accel.toString());
+            //writeLine("Accelerometer data gained: " + accel.toString());
             if (timestamp - timestampOld > 500) {
                 if (mArm != Arm.UNKNOWN && accel.z() > 1.3) {
-                    Log.e(TAG, "Gunshot POSE YA");
+                    writeLine("Gunshot POSE YA");
+                    gunShotPose = true;
                     onPose(myo, timestamp, Pose.REST);
                     return;
                 }
@@ -385,13 +398,13 @@ public class MainActivity extends BootstrapFragmentActivity {
         // nConnect() is called whenever a Myo has been connected.
         @Override
         public void onConnect(Myo myo, long timestamp) {
-            Log.e(TAG, "successful connection.");
+            writeLine("successful connection.");
         }
 
         // onDisconnect() is called whenever a Myo has been disconnected.
         @Override
         public void onDisconnect(Myo myo, long timestamp) {
-            Log.e(TAG, "disconnected.");
+            writeLine("disconnected.");
         }
 
         // onArmRecognized() is called whenever Myo has recognized a setup gesture after someone has put it on their
@@ -400,7 +413,7 @@ public class MainActivity extends BootstrapFragmentActivity {
         public void onArmRecognized(Myo myo, long timestamp, Arm arm, XDirection xDirection) {
             mArm = arm;
             mXDirection = xDirection;
-            Log.e(TAG, "arm registered, orientation noted, " + mArm.name());
+            //writeLine("arm registered, orientation noted, " + mArm.name());
         }
 
         // onArmLost() is called whenever Myo has detected that it was moved from a stable position on a person's arm after
@@ -410,7 +423,7 @@ public class MainActivity extends BootstrapFragmentActivity {
         public void onArmLost(Myo myo, long timestamp) {
             mArm = Arm.UNKNOWN;
             mXDirection = XDirection.UNKNOWN;
-            Log.e(TAG, "removed from arm?");
+            writeLine("removed from arm?");
         }
 
         // onOrientationData() is called whenever a Myo provides its current orientation,
@@ -426,18 +439,27 @@ public class MainActivity extends BootstrapFragmentActivity {
             // Handle the cases of the Pose enumeration, and change the text of the text view
             // based on the pose we receive.
 
+            for (Device device : currentDevices) {
+                Control control;
+                if ((control = device.getControl(pose, gunShotPose ? "gunShot" : "")) != null) {
+                    writeLine(control.signal);
+                    sendMessage(control.signal);
+                }
+            }
+
+            gunShotPose = false;
 
             switch (pose) {
                 case UNKNOWN:
-                    Log.e(TAG, "case unknown");
+                    //writeLine("case unknown");
                     break;
                 case REST:
                     switch (mArm) {
                         case LEFT:
-                            sendMessage("Arm left");
+                            //writeLine("Arm left");
                             break;
                         case RIGHT:
-                            sendMessage("Arm right");
+                            //writeLine("Arm right");
                             break;
                     }
 
@@ -447,19 +469,19 @@ public class MainActivity extends BootstrapFragmentActivity {
                     break;
 
                 case FIST:
-                    sendMessage("case FIST");
+                    //writeLine("case FIST");
                     break;
                 case WAVE_IN:
-                    sendMessage("case WAVE IN");
+                    //writeLine("case WAVE IN");
                     break;
                 case WAVE_OUT:
-                    sendMessage("case WAVE OUT");
+                    //writeLine("case WAVE OUT");
                     break;
                 case FINGERS_SPREAD:
-                    sendMessage("case FINGER SPREAD");
+                    //writeLine(TAG, "case FINGER SPREAD");
                     break;
                 case THUMB_TO_PINKY:
-                    sendMessage("case THUMB TO DAT PINKY DOE");
+                    //writeLine("case THUMB TO DAT PINKY DOE");
                     break;
             }
             timestampOld = timestamp;
@@ -496,8 +518,9 @@ public class MainActivity extends BootstrapFragmentActivity {
 
             Ln.d("Foo");
             final FragmentManager fragmentManager = getSupportFragmentManager();
+            carouselFragment = new CarouselFragment();
             fragmentManager.beginTransaction()
-                    .replace(R.id.container, new CarouselFragment())
+                    .replace(R.id.container, carouselFragment)
                     .commit();
         }
     }
@@ -549,7 +572,7 @@ public class MainActivity extends BootstrapFragmentActivity {
             }
         });
 
-        Log.d("UART", message);
+        Log.e("UART", message);
     }
 
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
@@ -572,6 +595,8 @@ public class MainActivity extends BootstrapFragmentActivity {
             if (resultCode == RESULT_CANCELED) {
                 //Write your code if there's no result
             }
+
+
     }
 
 }

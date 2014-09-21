@@ -10,4 +10,11 @@
         bootstrap:showAsAction="always"
         android:title="Add New Control" >
     </item>
+
+    <item
+        android:id="@+id/refresh"
+        android:icon="@drawable/ic_action_refresh"
+        bootstrap:showAsAction="always"
+        android:title="Refresh" >
+    </item>
 </menu>

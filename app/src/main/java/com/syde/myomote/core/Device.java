@@ -1,5 +1,7 @@
 package com.syde.myomote.core;
 
+import com.thalmic.myo.Pose;
+
 import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.StringTokenizer;
@@ -28,10 +30,27 @@ public class Device implements Serializable {
         newDevice.id = Integer.parseInt(st.nextToken());
         newDevice.controls = new ArrayList<Control>();
         while (st.hasMoreTokens()) {
-            String controlInput = st.nextToken() + " " + st.nextToken();
+            String controlInput = st.nextToken() + " " + st.nextToken() + " " + st.nextToken();
             newDevice.controls.add(Control.getControl(controlInput));
         }
         return newDevice;
+    }
+
+    public Control getControl (Pose pose, String customPose) {
+        if (customPose != null && !customPose.isEmpty()) {
+            for (Control control : controls) {
+                if (control.customPose.equals(customPose)) {
+                    return control;
+                }
+            }
+        } else {
+            for (Control control : controls) {
+                if (control.setPose != null && control.setPose.equals(pose)) {
+                    return control;
+                }
+            }
+        }
+        return null;
     }
 
 }
