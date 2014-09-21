@@ -242,17 +242,38 @@ public class MainActivity extends BootstrapFragmentActivity {
             newDevice.controls.add(newControl);
 
             newControl = new Control();
+            newControl.name = "Volume_Down";
+            newControl.customPose = Control.customPoses[1];
+            newControl.setPose = Pose.FIST;
+            newControl.signal = "2";
+            newDevice.controls.add(newControl);
+
+            newControl = new Control();
             newControl.name = "Volume_Up";
-            newControl.customPose = "";
-            newControl.setPose = Pose.WAVE_OUT;
+            newControl.customPose = Control.customPoses[2];
+            newControl.setPose = Pose.FIST;
             newControl.signal = "1";
             newDevice.controls.add(newControl);
 
             newControl = new Control();
-            newControl.name = "Volume_Down";
+            newControl.name = "AppTV_Up";
             newControl.customPose = "";
             newControl.setPose = Pose.WAVE_IN;
-            newControl.signal = "2";
+            newControl.signal = "3";
+            newDevice.controls.add(newControl);
+
+            newControl = new Control();
+            newControl.name = "AppTV_Down";
+            newControl.customPose = "";
+            newControl.setPose = Pose.WAVE_OUT;
+            newControl.signal = "5";
+            newDevice.controls.add(newControl);
+
+            newControl = new Control();
+            newControl.name = "AppTV_Home";
+            newControl.customPose = "";
+            newControl.setPose = Pose.FINGERS_SPREAD;
+            newControl.signal = "7";
             newDevice.controls.add(newControl);
 
             newDevice.name = "Dynex_TV";
@@ -325,7 +346,7 @@ public class MainActivity extends BootstrapFragmentActivity {
         }
 
         ismScanning = true;
-       // mBluetoothAdapter.startLeScan(scanCallback);
+      // mBluetoothAdapter.startLeScan(scanCallback);
 
         writeLine("About to init Hub.");
         Hub hub = Hub.getInstance();
@@ -338,7 +359,7 @@ public class MainActivity extends BootstrapFragmentActivity {
 
 
         // Use this instead to connect with a Myo that is very near (ie. almost touching) the device
-        Hub.getInstance().pairWithAdjacentMyo();
+        Hub.getInstance().pairWithAnyMyo();
 
         // Next, register for DeviceListener callbacks.
         hub.addListener(mListener);
@@ -377,15 +398,15 @@ public class MainActivity extends BootstrapFragmentActivity {
         private long timestampOld;
         private Arm mArm = Arm.UNKNOWN;
         private XDirection mXDirection = XDirection.UNKNOWN;
-        
 
-        
+
+
         /* Dump accelerometer data for a gesture */
         @Override
         public void onAccelerometerData(Myo myo, long timestamp, Vector3 accel) {
             //writeLine("Accelerometer data gained: " + accel.toString());
             if (timestamp - timestampOld > 500) {
-                if (mArm != Arm.UNKNOWN && accel.z() > 1.3) {
+                if (mArm != Arm.UNKNOWN && accel.z() > 1.5) {
                     //writeLine("Gunshot POSE YA");
                     gunShotPose = true;
                     onPose(myo, timestamp, Pose.REST);
@@ -439,6 +460,9 @@ public class MainActivity extends BootstrapFragmentActivity {
                     roll *= -1;
                 }
 
+                if ((roll > 20 || roll < -70) && timestamp - timestampOld > 250)
+                    onPose(myo, timestamp, Pose.FIST);
+
                 //Log.e(TAG, "Orientation: " + roll);
             }
         }
@@ -450,18 +474,18 @@ public class MainActivity extends BootstrapFragmentActivity {
             // Handle the cases of the Pose enumeration, and change the text of the text view
             // based on the pose we receive.
 
+            String customPose = "";
+            if (gunShotPose) {
+                customPose = Control.customPoses[0];
+            } else if (roll > 20 && pose.equals(Pose.FIST)) {
+                customPose = Control.customPoses[2];
+                Log.e(TAG, "rollRight");
+            } else if (roll < -70 && pose.equals(Pose.FIST)) {
+                customPose = Control.customPoses[1];
+                Log.e(TAG, "rollLeft");
+            }
             for (Device device : Global.currentDevices) {
                 Control control;
-                String customPose = "";
-                if (gunShotPose) {
-                    customPose = "gunShot";
-                } else if (roll > 20 && pose.equals(Pose.FIST)) {
-                    customPose = "rollRight";
-                    Log.e(TAG, "rollRight");
-                } else if (roll < -20 && pose.equals(Pose.FIST)) {
-                    customPose = "rollLeft";
-                    Log.e(TAG, "rollLeft");
-                }
                 if ((control = device.getControl(pose, customPose)) != null) {
                     //writeLine(control.signal);
                     sendMessage(control.signal);
@@ -579,7 +603,7 @@ public class MainActivity extends BootstrapFragmentActivity {
                 break;
             case 1:
                 // Timer
-                navigateToTimer();
+                carouselFragment.pager.setCurrentItem(1);
                 break;
         }
     }

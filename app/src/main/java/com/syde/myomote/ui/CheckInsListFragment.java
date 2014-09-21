@@ -15,7 +15,9 @@ import com.syde.myomote.R;
 import com.syde.myomote.authenticator.LogoutService;
 import com.syde.myomote.core.CheckIn;
 import com.github.kevinsawicki.wishlist.SingleTypeAdapter;
+import com.syde.myomote.core.Location;
 
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
@@ -63,18 +65,18 @@ public class CheckInsListFragment extends ItemListFragment<CheckIn> {
 
             @Override
             public List<CheckIn> loadData() throws Exception {
-                try {
-                    if (getActivity() != null) {
-                        return serviceProvider.getService(getActivity()).getCheckIns();
-                    } else {
-                        return Collections.emptyList();
-                    }
-                } catch (final OperationCanceledException e) {
-                    final Activity activity = getActivity();
-                    if (activity != null)
-                        activity.finish();
-                    return initialItems;
-                }
+
+                    ArrayList<CheckIn> list = new ArrayList<CheckIn>();
+                    CheckIn addMyo = new CheckIn();
+                    addMyo.setName("Peter Gokhshteyn's Myo");
+                    addMyo.randomData="TestID: ss89ddfg";
+                    list.add(addMyo);
+                    addMyo = new CheckIn();
+                    addMyo.setName("Jared's Myo");
+                    addMyo.randomData="TestID: fga9d8fs";
+                    list.add(addMyo);
+                    return list;
+
             }
         };
     }
@@ -82,20 +84,6 @@ public class CheckInsListFragment extends ItemListFragment<CheckIn> {
     @Override
     protected SingleTypeAdapter<CheckIn> createAdapter(final List<CheckIn> items) {
         return new CheckInsListAdapter(getActivity().getLayoutInflater(), items);
-    }
-
-    public void onListItemClick(final ListView l, final View v, final int position, final long id) {
-        final CheckIn checkIn = ((CheckIn) l.getItemAtPosition(position));
-
-        final String uri = String.format("geo:%s,%s?q=%s",
-                checkIn.getLocation().getLatitude(),
-                checkIn.getLocation().getLongitude(),
-                checkIn.getName());
-
-        // Show a chooser that allows the user to decide how to display this data, in this case, map data.
-        startActivity(Intent.createChooser(
-                new Intent(Intent.ACTION_VIEW, Uri.parse(uri)), getString(R.string.choose))
-        );
     }
 
     @Override

@@ -72,7 +72,11 @@ public class DeviceListFragment extends ItemListFragment<Control> {
 
                     int size = sharedPref.getInt(Global.NUM_DEVICES, 0);
                     for (int i = 0; i < size; i++) {
-                        latest.addAll(Device.parseString(sharedPref.getString(Global.DEVICES + i, "")).controls);
+                        Device addDevice = Device.parseString(sharedPref.getString(Global.DEVICES + i, ""));
+                        for (Control control : addDevice.controls) {
+                            control.deviceName = addDevice.name;
+                            latest.add(control);
+                        }
                     }
 
                     if (latest != null) {

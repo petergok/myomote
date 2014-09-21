@@ -13,7 +13,7 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:gravity="left"
-            android:text="@string/location_column"
+            android:text="Name"
             android:textAppearance="?android:attr/textAppearanceSmall"
             android:textColor="@color/table_text_header"
             android:textStyle="bold" />
@@ -22,7 +22,7 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:gravity="right"
-            android:text="@string/date_column"
+            android:text="TestID"
             android:textAppearance="?android:attr/textAppearanceSmall"
             android:textColor="@color/table_text_header"
             android:textStyle="bold" />

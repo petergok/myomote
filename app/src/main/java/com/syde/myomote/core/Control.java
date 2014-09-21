@@ -10,7 +10,7 @@ import java.util.StringTokenizer;
  */
 public class Control implements Serializable {
 
-    public static String[] customPoses = {"gunShot", "rollRight", "rollLeft"};
+    public static String[] customPoses = {"Gun_Shot", "Roll_Right", "Roll_Left"};
 
     public Pose setPose;
     public String customPose;

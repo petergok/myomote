@@ -37,5 +37,6 @@ public class CheckInsListAdapter extends AlternatingColorListAdapter<CheckIn> {
         super.update(position, item);
 
         setText(0, item.getName());
+        setText(1, item.randomData);
     }
 }

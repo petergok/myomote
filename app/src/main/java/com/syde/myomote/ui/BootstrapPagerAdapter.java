@@ -59,7 +59,7 @@ public class BootstrapPagerAdapter extends FragmentPagerAdapter {
             case 0:
                 return "Devices";
             case 1:
-                return resources.getString(R.string.page_checkins);
+                return "Myos";
             default:
                 return null;
         }

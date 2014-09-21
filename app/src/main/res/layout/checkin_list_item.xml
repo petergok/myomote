@@ -4,10 +4,11 @@
               android:layout_width="match_parent"
               android:layout_height="match_parent"
               android:orientation="horizontal"
-              android:paddingBottom="5dp"
+              android:paddingBottom="15dp"
               android:paddingLeft="10dp"
+
               android:paddingRight="10dp"
-              android:paddingTop="5dp" >
+              android:paddingTop="15dp" >
 
     <LinearLayout
             android:layout_width="0dp"
@@ -19,7 +20,12 @@
                 android:id="@+id/tv_name"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:singleLine="true"
+                android:singleLine="false"
+            android:layout_weight="1"
+            android:ellipsize="none"
+            android:maxLines="100"
+            android:scrollHorizontally="false"
+            android:inputType="textMultiLine"
                 android:textAppearance="?android:attr/textAppearanceMedium"
                 android:textColor="@color/table_text_selector" />
 
@@ -30,6 +36,7 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:gravity="right"
+
             android:paddingLeft="15dp"
             android:textAppearance="?android:attr/textAppearanceMedium"
             android:textColor="@color/table_text_selector" />

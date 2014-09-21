@@ -4,6 +4,7 @@ public class CheckIn {
 
     private Location location;
     private String name;
+    public String randomData;
     private String objectId;
 
     public Location getLocation() {
